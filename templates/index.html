@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plant Disease Detection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #3498db;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-green-100 to-gray-200 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 hover:shadow-3xl">
+    <div class="text-center mb-6">
+      <h1 class="text-3xl font-extrabold text-green-700 mb-2">Plant Health Scanner</h1>
+      <p class="text-gray-600 text-sm">Detect diseases in your plants with ease</p>
+    </div>
+    <div class="space-y-4">
+      <div class="flex items-center justify-center w-full" id="dropContainer">
+        <div id="dropZone" 
+             class="flex flex-col items-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors relative">
+          
+          <input id="imageInput" type="file" accept="image/png,image/jpeg,image/jpg" 
+                 class="hidden" onchange="previewImage(this.files)">
+          
+          <div class="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
+            <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            <p class="text-sm text-gray-500 mt-1">Drag & drop or click to upload</p>
+            <p class="text-xs text-gray-400">PNG, JPG, JPEG (max 5MB)</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="previewContainer" class="hidden">
+        <img id="preview" class="w-full h-48 object-contain rounded-lg mt-2">
+        <button onclick="removeImage()" 
+                class="mt-3 w-full bg-red-500 text-white py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors">
+          Remove Image
+        </button>
+      </div>
+
+      <button onclick="predictImage()" 
+              class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 disabled:bg-gray-400" 
+              id="predictButton" disabled>
+        <span>Predict Disease</span>
+        <span id="loadingSpinner" class="spinner hidden"></span>
+      </button>
+      <div id="result" class="mt-4 text-center text-lg font-medium"></div>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("imageInput");
+    const dropContainer = document.getElementById("dropContainer");
+    const previewContainer = document.getElementById("previewContainer");
+    const preview = document.getElementById("preview");
+    const predictButton = document.getElementById("predictButton");
+
+    dropZone.addEventListener("click", () => fileInput.click());
+
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("bg-green-50", "border-green-400");
+    });
+
+    dropZone.addEventListener("dragleave", () => {
+      dropZone.classList.remove("bg-green-50", "border-green-400");
+    });
+
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("bg-green-50", "border-green-400");
+
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;  
+        previewImage(e.dataTransfer.files);      
+      }
+    });
+
+    function previewImage(files) {
+      if (files && files[0]) {
+        const file = files[0];
+        preview.src = URL.createObjectURL(file);
+        dropContainer.classList.add("hidden");   
+        previewContainer.classList.remove("hidden");
+        predictButton.disabled = false;
+      }
+    }
+
+    function removeImage() {
+      fileInput.value = ""; 
+      preview.src = "";
+      previewContainer.classList.add("hidden"); 
+      dropContainer.classList.remove("hidden"); 
+      predictButton.disabled = true; 
+      document.getElementById("result").innerHTML = "";
+    }
+
+    function predictImage() {
+      const resultDiv = document.getElementById('result');
+      const loadingSpinner = document.getElementById('loadingSpinner');
+
+      if (!fileInput.files[0]) {
+        resultDiv.innerHTML = '<p class="text-red-500">Please select an image.</p>';
+        return;
+      }
+
+      resultDiv.innerHTML = '';
+      predictButton.disabled = true;
+      loadingSpinner.classList.remove('hidden');
+
+      const formData = new FormData();
+      formData.append('image', fileInput.files[0]);
+
+      fetch('/predict', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        loadingSpinner.classList.add('hidden');
+        predictButton.disabled = false;
+        if (data.error) {
+          resultDiv.innerHTML = `<p class="text-red-500">Error: ${data.error}</p>`;
+        } else {
+          resultDiv.innerHTML = `<p class="text-green-600">${data.message}</p>`;
+        }
+      })
+      .catch(error => {
+        loadingSpinner.classList.add('hidden');
+        predictButton.disabled = false;
+        resultDiv.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+      });
+    }
+  </script>
+</body>
+</html>
